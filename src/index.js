@@ -38,26 +38,81 @@ class ClashApi {
     }, opts, this._requestDefaults);
   }
 
+  // Player
   playerByTag(tag) {
     return request(this.requestOptions({
       uri: `${this.uri}/players/${encodeURIComponent(tag)}`
+    }));
+  }
+
+  // Clan
+  clanByTag(tag) {
+    return request(this.requestOptions({
+      uri: `${this.uri}/clans/${encodeURIComponent(tag)}`
     }));
   }
 }
 
 // Routes
 app.get('/', (req, res) => {
-  res.send('COC Proxy is running! Use /player/:tag or /checkip');
+  res.send('COC Proxy is running! Use /player/:tag, /clan/:tag, /v1/... or /checkip');
 });
 
+// Check IP (simple)
 app.get('/checkip', (req, res) => {
   res.json({ ip: getClientIp(req) });
 });
 
+// Check IP (full debug)
+app.get('/checkip/full', (req, res) => {
+  res.json({
+    ip: getClientIp(req),
+    method: req.method,
+    headers: req.headers,
+    connection: {
+      remoteAddress: req.connection.remoteAddress,
+      remotePort: req.connection.remotePort
+    }
+  });
+});
+
+// Player route
 app.get('/player/:tag', async (req, res) => {
   try {
     const client = new ClashApi();
     const data = await client.playerByTag(req.params.tag);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+      details: err.error || null
+    });
+  }
+});
+
+// Clan route
+app.get('/clan/:tag', async (req, res) => {
+  try {
+    const client = new ClashApi();
+    const data = await client.clanByTag(req.params.tag);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({
+      error: err.message,
+      details: err.error || null
+    });
+  }
+});
+
+// Universal route: supports everything in Clash API
+app.get('/v1/*', async (req, res) => {
+  try {
+    const url = `${config.uri}/v1/${req.params[0]}`;
+    const data = await request({
+      uri: url,
+      headers: { Authorization: `Bearer ${process.env.COC_API_TOKEN}` },
+      json: true
+    });
     res.json(data);
   } catch (err) {
     res.status(500).json({
