@@ -1,7 +1,11 @@
+import express from 'express';
 import request from 'request-promise';
+import lodash from 'lodash';
 import config from './config.js';
-import lodash from 'lodash';   // ✅ Fix for CommonJS
 const { merge } = lodash;
+
+const app = express();
+const PORT = process.env.PORT || 10000;
 
 const env = process.env;
 
@@ -29,126 +33,33 @@ class ClashApi {
     }, opts, this._requestDefaults);
   }
 
-  clanByTag(tag) {
-    return request(this.requestOptions({
-      uri: `${this.uri}/clans/${encodeURIComponent(tag)}`,
-    }));
-  }
-
-  clanMembersByTag(tag) {
-    return request(this.requestOptions({
-      uri: `${this.uri}/clans/${encodeURIComponent(tag)}/members`,
-    }));
-  }
-
-  clanWarlogByTag(tag) {
-    return request(this.requestOptions({
-      uri: `${this.uri}/clans/${encodeURIComponent(tag)}/warlog`,
-    }));
-  }
-
-  clanCurrentWarByTag(tag) {
-    return request(this.requestOptions({
-      uri: `${this.uri}/clans/${encodeURIComponent(tag)}/currentwar`,
-    }));
-  }
-
-  clanLeague(tag) {
-    return request(this.requestOptions({
-      uri: `${this.uri}/clans/${encodeURIComponent(tag)}/currentwar/leaguegroup`,
-    }));
-  }
-
-  clanLeagueWars(tag) {
-    return request(this.requestOptions({
-      uri: `${this.uri}/clanwarleagues/wars/${encodeURIComponent(tag)}`,
-    }));
-  }
-
-  clans() {
-    var qs = {};
-
-    const dsl = [
-      'name', 'warFrequency', 'locationId', 'minMembers', 'maxMembers',
-      'minClanPoints', 'minClanLevel', 'limit', 'after', 'before'
-    ].reduce((builder, field) => {
-      builder[`with${capitalizeFirstLetter(field)}`] = (input) => {
-        qs[field] = input;
-        return builder;
-      };
-      return builder;
-    }, {
-      fetch: function () {
-        return request(this.requestOptions({
-          qs: qs,
-          uri: `${this.uri}/clans`,
-        }));
-      }.bind(this)
-    });
-
-    return dsl;
-  }
-
-  locations() {
-    const dsl = {
-      fetch: function () {
-        return request(this.requestOptions({
-          uri: `${this.uri}/locations`,
-        }));
-      }.bind(this),
-      withId: function (locId) {
-        let rankId;
-
-        const rankingDslMembers = {
-          byClan: function () {
-            rankId = 'clans';
-            return rankingDsl;
-          },
-          byPlayer: function () {
-            rankId = 'players';
-            return rankingDsl;
-          }
-        };
-
-        const rankingDsl = Object.assign({
-          fetch: function () {
-            return request(this.requestOptions({
-              uri: `${this.uri}/locations/${encodeURIComponent(locId)}/rankings/${rankId}`,
-            }));
-          }.bind(this)
-        }, rankingDslMembers);
-
-        const locDsl = Object.assign({
-          fetch: function () {
-            return request(this.requestOptions({
-              uri: `${this.uri}/locations/${encodeURIComponent(locId)}`,
-            }));
-          }
-        }, rankingDslMembers);
-
-        return locDsl;
-      }.bind(this)
-    };
-    return dsl;
-  }
-
-  leagues() {
-    return request(this.requestOptions({
-      uri: `${this.uri}/leagues`,
-    }));
-  }
-
   playerByTag(tag) {
     return request(this.requestOptions({
-      uri: `${this.uri}/players/${encodeURIComponent(tag)}`,
+      uri: `${this.uri}/players/${encodeURIComponent(tag)}`
     }));
   }
 }
 
-const factory = function (config) {
-  return new ClashApi(config);
-};
+// ✅ Routes
+app.get('/', (req, res) => {
+  res.send('COC Proxy is running! Use /player/:tag or /checkip');
+});
 
-factory.ClashApi = ClashApi;
+app.get('/checkip', (req, res) => {
+  res.json({ ip: req.ip });
+});
 
-export default factory;
+app.get('/player/:tag', async (req, res) => {
+  try {
+    const client = new ClashApi();
+    const data = await client.playerByTag(req.params.tag);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ Start server
+app.listen(PORT, () => {
+  console.log(`Proxy running on ${PORT}`);
+});
