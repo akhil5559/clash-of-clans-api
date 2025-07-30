@@ -1,6 +1,7 @@
 import request from 'request-promise';
-import config from './config.js';   // ✅ Now points to config in the same folder
-import { merge } from 'lodash';
+import config from './config.js';
+import lodash from 'lodash';   // ✅ Fix for CommonJS
+const { merge } = lodash;
 
 const env = process.env;
 
