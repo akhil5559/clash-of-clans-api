@@ -7,15 +7,20 @@ const { merge } = lodash;
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-const env = process.env;
+// DEBUG token check
+if (!process.env.COC_API_TOKEN) {
+  console.error('❌ ERROR: COC_API_TOKEN is missing in environment variables!');
+} else {
+  console.log('✅ COC_API_TOKEN is loaded!');
+}
 
-function capitalizeFirstLetter(string) {
-  return string.charAt(0).toUpperCase() + string.substr(1);
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
 }
 
 class ClashApi {
   constructor({ uri, token, request: req } = {}) {
-    this.token = token || env.COC_API_TOKEN;
+    this.token = token || process.env.COC_API_TOKEN;
     this.uri = uri || config.uri;
     this._requestDefaults = req || {};
     if (!this.token) {
@@ -40,13 +45,13 @@ class ClashApi {
   }
 }
 
-// ✅ Routes
+// Routes
 app.get('/', (req, res) => {
   res.send('COC Proxy is running! Use /player/:tag or /checkip');
 });
 
 app.get('/checkip', (req, res) => {
-  res.json({ ip: req.ip });
+  res.json({ ip: getClientIp(req) });
 });
 
 app.get('/player/:tag', async (req, res) => {
@@ -55,11 +60,14 @@ app.get('/player/:tag', async (req, res) => {
     const data = await client.playerByTag(req.params.tag);
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      error: err.message,
+      details: err.error || null
+    });
   }
 });
 
-// ✅ Start server
+// Start server
 app.listen(PORT, () => {
-  console.log(`Proxy running on ${PORT}`);
+  console.log(`🚀 Proxy running on ${PORT}`);
 });
